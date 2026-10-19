@@ -15,7 +15,7 @@ in the platform repository: `third-year-med/Interactive-pathology-platform` → 
   with `tools/module-release.js refresh` — do not edit it by hand.
 - Stable IDs: topics t01–t16 (t15 = Practical, t16 = Integration), sections sNNMM, questions q001–q301 (q001–q147 source MCQs,
   q148–q191 source vignettes, q192–q301 written for the module), cases c01–c16. A new build keeps them (`docs/REBUILD.md`).
-- The Robbins picture-import file (`neo-picture-import`, keys `nm-robbins6-01…28`) and the Official Exams question bank
+- The Robbins picture-import file (`neo-picture-import`, keys `nm-robbins6-01…39`) and the Official Exams question bank
   (`xq_nm001…088`) are delivered to the user directly and are never committed (textbook figures / exam answers).
 - Test changes on the real page with the platform repo's e2e test "Neoplasia module (neoplasm)" (`NM_CONTENT_KEY` in the
   environment) and `node test/module-smoke/smoke.js` before pushing.

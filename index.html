@@ -9996,6 +9996,8 @@ function attendanceJoinUrl(token) {
 
 /** True while Teacher Portal → Attendance is the tab on screen (the only place the teacher attendance UI lives). */
 function attTeacherVisible() { return Router.current === 'teacher' && Views.teacher && Views.teacher.tab === 'attendance' && Auth.isTeacher(); }
+/** The teacher's live attendance panel is on screen: Teacher Portal → Attendance, or the module's 📋 Attendance tab. */
+function attTeacherOnScreen() { return attTeacherVisible() || (Router.current === 'attendance' && Auth.isTeacher() && !Views.attendance.checkinToken); }
 
 const AttT = { // teacher's current session
   // The QR token only ever lives in memory once a session starts (kept out of the shared
@@ -10011,17 +10013,22 @@ const AttT = { // teacher's current session
   },
   startPolling() { this.stopPolling(); this.poll(); this.timer = setInterval(() => this.poll(), 4000); },
   stopPolling() { if (this.timer) clearInterval(this.timer); this.timer = null; },
-  async poll() {
+  async poll(force) {
     if (!this.sessionId || !Backend.isAuthed()) return;
-    const r = await Backend.authedPost({ action: 'getAttendanceTeacherState', sessionId: this.sessionId }, { timeout: 12000 });
+    if (!force && (document.hidden || !attTeacherOnScreen())) return;   // nobody is looking: no request (resumes when the screen is back)
+    if (this.busy) return;                                               // never two requests at once (a slow answer + the next tick)
+    this.busy = true; let r;
+    try { r = await Backend.authedPost({ action: 'getAttendanceTeacherState', sessionId: this.sessionId }, { timeout: 12000 }); } finally { this.busy = false; }
+    if (r && r.ok && r.session && r.session.sessionId && r.session.sessionId !== this.sessionId) return;   // an answer for a session already left
     if (r && r.ok) {
       const gotToken = !this.token && r.session && r.session.token;
       const firstState = !this.state; // the header (session title, course…) was drawn before any state arrived
-      this.state = r;
+      this.state = r; this.at = Date.now(); this.err = '';
       if (gotToken) { this.token = r.session.token; this.save(); }
-      if (attTeacherVisible()) { if (gotToken || firstState) Views.attendance.render(); else Views.attendance.paintTeacher(); }
+      if (attTeacherOnScreen()) { if (gotToken || firstState) Views.attendance.render(); else Views.attendance.paintTeacher(); }
     }
-    else if (r && r.code === 'notfound') { this.sessionId = null; this.token = null; this.save(); this.stopPolling(); if (attTeacherVisible()) Views.attendance.render(); }
+    else if (r && r.code === 'notfound') { this.sessionId = null; this.token = null; this.save(); this.stopPolling(); if (attTeacherOnScreen()) Views.attendance.render(); }
+    else { this.err = (r && r.error) || 'no answer'; if (attTeacherOnScreen()) Views.attendance.paintTeacher(); }   // keep the last saved list; the next tick retries
   }
 };
 
@@ -10293,6 +10300,7 @@ Views.attendance = {
     this.listBox = el('div', { class: 'card mt1' });
     page.appendChild(this.listBox);
     this.paintTeacher();
+    if (!AttT.at || Date.now() - AttT.at > 3000) setTimeout(() => AttT.poll(), 0);   // back on this screen: the latest check-ins at once
   },
   /** The attendance code over the whole screen (projector): Esc, ✕ or a click closes; follows a regenerated code. */
   codeFullScreen() {
@@ -10315,7 +10323,10 @@ Views.attendance = {
     const codeEl = document.getElementById('att-code'); const sc = AttT.state && AttT.state.session && AttT.state.session.code;
     if (codeEl && sc && codeEl.textContent !== sc) { codeEl.textContent = sc; AttT.code = sc; } // e.g. regenerated from another device
     const records = (AttT.state && AttT.state.records) || [];
-    box.appendChild(el('div', { class: 'row between' }, el('b', null, '🧑‍🎓 Present: ' + records.length + ' student' + (records.length === 1 ? '' : 's')), el('button', { class: 'btn btn-xs', title: 'Refresh', onclick: () => AttT.poll() }, '↻')));
+    box.appendChild(el('div', { class: 'row between' }, el('b', null, '🧑‍🎓 Present: ' + records.length + ' student' + (records.length === 1 ? '' : 's')), el('button', { class: 'btn btn-xs', title: 'Refresh', onclick: () => AttT.poll(true) }, '↻')));
+    box.appendChild(el('div', { class: 'small att-live-note' + (AttT.err ? '' : ' muted'), style: AttT.err ? 'color:#a15c00;font-weight:600' : '' }, AttT.err
+      ? '⚠ The class server did not answer (' + AttT.err + ') — retrying automatically. The list shows the check-ins saved so far.'
+      : '● Live — new check-ins appear automatically (every 4 s)' + (AttT.at ? ' · updated ' + fmtTime(AttT.at) : '')));
     if (!records.length) box.appendChild(el('div', { class: 'small muted mt1' }, 'Waiting for the first student to check in…'));
     else box.appendChild(el('div', { class: 'table-scroll mt1' }, el('table', { class: 'data-table' },
       el('thead', null, el('tr', null, ['#', 'Student', 'Student ID', 'Time', 'Status', 'Action'].map(h => el('th', null, h)))),
@@ -10599,6 +10610,7 @@ Views.attendance = {
 };
 function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 Bus.on('auth-changed', () => { if (AttT.sessionId && Backend.isAuthed() && !AttT.timer) AttT.startPolling(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && AttT.sessionId && attTeacherOnScreen()) AttT.poll(); });   // the browser tab is back
 
 /* ==========================================================================
    50a_study_engine.js — the Study Engine: the data layer behind Study Tools.

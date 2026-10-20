@@ -12058,6 +12058,13 @@ Bus.on('sync-status', () => { const old = document.querySelector('#view-study .s
    passwords are never stored or shown by the browser except a generated
    temporary password, which the server returns ONCE for the teacher to hand out.
    ========================================================================== */
+/** Portal.gs 2.24: what happened on the group's student list (nothing when the module is not a group's). */
+function stuGroupNote(r) {
+  const g = r && r.group; if (!g) return '';
+  const n = (g.joined || []).length, a = (g.already || []).length;
+  return (n ? ' Also added to the student list of group ' + (g.name || GROUP_TAG || '') + ' — ' + (n === 1 ? 'the student signs' : 'they sign') + ' in on the group page with the same password' + (g.otherAccounts ? ' (accounts made in the group’s other modules too)' : '') + '.' : '')
+    + (a ? ' ' + a + ' already on the group list (unchanged).' : '');
+}
 const StudentAdmin = {
   list: null, loading: false, q: '', lastIssued: [],
   async load(force) {
@@ -12099,7 +12106,7 @@ const StudentAdmin = {
       msg.className = 'msg info'; msg.textContent = 'Creating…';
       const r = await Backend.authedPost({ action: 'saveStudent', create: true, student: { username: id.value, name: nm.value, email: em.value, password: pw.value } });
       if (!(r && r.ok)) { msg.className = 'msg bad'; msg.textContent = (r && r.error) || 'Could not create the account.'; return; }
-      msg.className = 'msg ok'; msg.textContent = '✓ Account created for ' + r.username + (r.tempPassword ? '' : ' (with the password you entered — the student must change it at first sign-in).');
+      msg.className = 'msg ok'; msg.textContent = '✓ Account created for ' + r.username + (r.tempPassword ? '' : ' (with the password you entered — the student must change it at first sign-in).') + stuGroupNote(r);
       id.value = nm.value = em.value = pw.value = '';
       if (r.tempPassword) this.issued([{ username: r.username, tempPassword: r.tempPassword }]);
       this.load(true);
@@ -12122,7 +12129,7 @@ const StudentAdmin = {
         if (!(r && r.ok)) { bmsg.className = 'msg bad'; bmsg.textContent = (r && r.error) || 'Failed.'; return; }
         const bad = r.results.filter(x => !x.ok);
         bmsg.className = 'msg ' + (bad.length ? 'warn' : 'ok');
-        bmsg.textContent = '✓ ' + r.created + ' created' + (bad.length ? ' · ' + bad.length + ' skipped: ' + bad.map(x => x.error).join(' ') : '');
+        bmsg.textContent = '✓ ' + r.created + ' created' + (bad.length ? ' · ' + bad.length + ' skipped: ' + bad.map(x => x.error).join(' ') : '') + stuGroupNote(r);
         if (r.created) { ta.value = ''; this.issued(r.results.filter(x => x.ok)); }
         this.load(true);
       } }, 'Create accounts')));

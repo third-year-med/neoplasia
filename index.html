@@ -5937,7 +5937,7 @@ const AssessAPI = {
       if (!pw.valid) return { ok: false, error: 'Incorrect quiz password. Please check with your teacher.', code: 'badpw' };
       try { return localFn(this.local()); } catch (e) { return { ok: false, error: e.message }; }
     }
-    const r = await Backend.rawPost(Object.assign({ action }, payload), { timeout: 30000 });
+    const r = await Backend.rawPost(Object.assign({ action }, payload), { timeout: action === 'getMyAssessments' ? 90000 : 30000 });
     if (r && !r.ok && /Unknown action/i.test(r.error || '')) r.error = 'The class server hasn’t been updated for assessments yet — please tell your teacher.';
     return r;
   },
@@ -6175,16 +6175,22 @@ Views.quiz = {
   async reload() {
     const me = this.me(); if (!me) return;
     this.loading = true;
+    this.loadError = null;
     const r = await AssessAPI.getMyAssessments(me.email, this.pw());
     this.loading = false;
     if (r && r.ok) this.list = r;
     else if (r && r.code === 'badpw') { Store.sdel('quiz_pw_s'); if (this.acct() && !this.needPw) this.needPw = true; else toast('The quiz password has changed — please enter the new one.', 'warn', 6000); }
-    else toast((r && r.error) || 'Could not refresh your assessments.', 'bad');
+    else { this.loadError = (r && r.error) || 'Could not load your assessments.'; if (this.list) toast(this.loadError, 'bad'); }
     this.render();
   },
   renderDashboard(page) {
     const me = this.me();
-    if (!this.list && !this.loading) { page.appendChild(el('div', { class: 'card empty' }, 'Loading your assessments…')); this.reload(); return; }
+    if (!this.list && !this.loading && this.loadError) {   // the list could not be loaded: say why, retry only when asked
+      page.appendChild(el('div', { class: 'card empty assess-loaderr' }, el('span', { class: 'big' }, '⚠️'), el('b', null, 'Your assessments could not be loaded.'),
+        el('p', { class: 'small muted' }, this.loadError), el('button', { class: 'btn btn-primary', onclick: () => { this.loadError = null; this.render(); } }, '↻ Try again')));
+      return;
+    }
+    if (!this.list) { page.appendChild(el('div', { class: 'card empty' }, 'Loading your assessments…')); if (!this.loading) this.reload(); return; }
     const items = (this.list && this.list.items) || [];
     page.appendChild(sectionTitleBlock('📝 My Assessments', (me.account ? me.name + ' · Student ID ' + me.studentId : me.name + ' · ' + me.email),
       el('div', { class: 'row' },

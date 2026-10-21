@@ -12159,7 +12159,7 @@ const StudentAdmin = {
     };
     box.appendChild(el('div', { class: 'card' }, el('h3', null, '➕ Add a student'),
       el('div', { class: 'field-row' }, el('label', { class: 'field' }, 'Student ID / username', id), el('label', { class: 'field' }, 'Full name', nm)),
-      el('div', { class: 'field-row' }, el('label', { class: 'field' }, 'Email (optional)', em), el('label', { class: 'field' }, 'Initial password (optional, min 8)', pw)),
+      el('div', { class: 'field-row' }, el('label', { class: 'field' }, 'Email (optional)', em), el('label', { class: 'field' }, 'Initial password (optional, min 4)', pw)),
       msg, el('button', { class: 'btn btn-primary mt1', onclick: add }, 'Add student')));
     // ---- bulk ----
     const ta = el('textarea', { rows: 5, placeholder: 'One student per line:  ID, Full name, email (optional)\n2023104, Ahmed Ali, ahmed@uni.edu\n2023105, Sara Mohamed' });
@@ -12226,7 +12226,7 @@ const StudentAdmin = {
   async reset(x) {
     const v = await promptDialog('Reset password — ' + x.username, 'New temporary password (optional)', { placeholder: 'Leave empty to generate one', okLabel: 'Reset password', hint: 'The student is signed out everywhere and must choose a new password at the next sign-in.' });
     if (v === null) return;
-    if (v && v.length < 8) { toast('At least 8 characters.', 'bad'); return; }
+    if (v && v.length < 4) { toast('At least 4 characters.', 'bad'); return; }
     const r = await this.act('resetStudentPassword', x, 'Password reset.', { password: v || '' });
     if (r && r.tempPassword) this.issued([{ username: x.username, tempPassword: r.tempPassword }]);
   },
@@ -12322,7 +12322,7 @@ Views.teacher = {
       el('p', { class: 'small' }, 'Your backend has no teacher password yet. Choose one now (it is stored on the server as a salted hash):'),
       el('label', { class: 'field' }, 'Password', p1), el('label', { class: 'field' }, 'Repeat', p2), msg,
       el('button', { class: 'btn btn-primary mt1', onclick: async () => {
-        if (p1.value.length < 8) { msg.className = 'msg bad'; msg.textContent = 'At least 8 characters.'; return; }
+        if (p1.value.length < 4) { msg.className = 'msg bad'; msg.textContent = 'At least 4 characters.'; return; }
         if (p1.value !== p2.value) { msg.className = 'msg bad'; msg.textContent = 'The passwords do not match.'; return; }
         const r = await Backend.rawPost({ action: 'setup', password: p1.value });
         if (r && r.ok) { msg.className = 'msg ok'; msg.textContent = 'Password set. Signing you in…'; await Auth.login(p1.value); this.render(); }
@@ -12651,14 +12651,14 @@ Views.teacher = {
   tabAccount(box) {
     clear(box);
     const o = el('input', { type: 'password', placeholder: 'Current password' });
-    const n1 = el('input', { type: 'password', placeholder: 'New password (min 8 characters)' });
+    const n1 = el('input', { type: 'password', placeholder: 'New password (min 4 characters)' });
     const n2 = el('input', { type: 'password', placeholder: 'Repeat new password' });
     const msg = el('div');
     box.appendChild(el('div', { class: 'card', style: 'max-width:560px' }, el('h3', null, '⚙ Change teacher password'),
       el('p', { class: 'small muted' }, Backend.isConfigured() ? 'Changes the password on your backend (shared by every device).' : 'Local mode: changes the password for THIS browser only (stored as a hash; still not secure).'),
       el('label', { class: 'field' }, 'Current', o), el('label', { class: 'field' }, 'New', n1), el('label', { class: 'field' }, 'Repeat', n2), msg,
       el('button', { class: 'btn btn-primary mt1', onclick: async () => {
-        if (n1.value.length < 8) { msg.className = 'msg bad'; msg.textContent = 'At least 8 characters.'; return; }
+        if (n1.value.length < 4) { msg.className = 'msg bad'; msg.textContent = 'At least 4 characters.'; return; }
         if (n1.value !== n2.value) { msg.className = 'msg bad'; msg.textContent = 'New passwords do not match.'; return; }
         if (Backend.isConfigured()) {
           const r = await Backend.changePassword(o.value, n1.value);
@@ -19494,7 +19494,7 @@ startApp();
     var btn = h('button', { class: 'nb-btn', type: 'submit' }, 'Create teacher password');
     c2.appendChild(h('form', { novalidate: true, onsubmit: async function (e) {
       e.preventDefault();
-      if (p1.value.length < 8) return setMsg(m2, 'At least 8 characters.');
+      if (p1.value.length < 4) return setMsg(m2, 'At least 4 characters.');
       if (p1.value !== p2.value) return setMsg(m2, 'The passwords do not match.');
       busy(btn, true, 'Creating…');
       var r = await post({ action: 'setup', password: p1.value });
@@ -19503,7 +19503,7 @@ startApp();
       if (!l || !l.ok) { busy(btn, false, 'Create teacher password'); return setMsg(m2, (l && l.error) || 'Failed.'); }
       lset('backend_token_v1', { token: l.token, expiresAt: l.expiresAt, url: backendUrl() });
       start({ role: 'teacher', key: l.contentKey });
-    } }, h('h1', { class: 'nb-h', text: 'First-time setup' }), h('p', { class: 'nb-muted', text: 'No teacher account exists for this module yet. Create the teacher password (min 8 characters).' }),
+    } }, h('h1', { class: 'nb-h', text: 'First-time setup' }), h('p', { class: 'nb-muted', text: 'No teacher account exists for this module yet. Create the teacher password (min 4 characters).' }),
       field('New teacher password', p1), field('Repeat', p2), m2, btn,
       h('button', { class: 'nb-link', type: 'button', onclick: function () { showLogin('teacher'); } }, '◀ Back')));
   }
@@ -19520,7 +19520,7 @@ startApp();
     var btn = h('button', { class: 'nb-btn', type: 'submit' }, 'Save new password');
     host.appendChild(h('form', { novalidate: true, onsubmit: async function (e) {
       e.preventDefault();
-      if (n1.value.length < 8) return setMsg(msg, 'The new password must be at least 8 characters.');
+      if (n1.value.length < 4) return setMsg(msg, 'The new password must be at least 4 characters.');
       if (n1.value !== n2.value) return setMsg(msg, 'The new passwords do not match.');
       busy(btn, true, 'Saving…');
       var r = await post({ action: 'studentChangePassword', stoken: sess.token, oldPassword: old.value, newPassword: n1.value });
@@ -19531,7 +19531,7 @@ startApp();
       start({ role: 'student', student: sess.student, key: r.contentKey });
     } },
       h('h1', { class: 'nb-h', text: forced ? 'Choose your own password' : 'Change password' }),
-      forced ? h('p', { class: 'nb-muted', text: 'For your security, set a new password before continuing (at least 8 characters, not your student ID).' }) : null,
+      forced ? h('p', { class: 'nb-muted', text: 'For your security, set a new password before continuing (at least 4 characters, not your student ID).' }) : null,
       knownOld && forced ? null : field('Current password', old),
       field('New password', n1), field('Repeat new password', n2), msg, btn,
       inModal ? h('button', { class: 'nb-link', type: 'button', onclick: function () { host.parentNode.remove(); } }, 'Cancel')

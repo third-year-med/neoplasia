@@ -6226,7 +6226,8 @@ Views.quiz = {
       const btn = can ? el('button', { class: 'btn btn-sm ' + (it.inProgressId || !subs.length ? 'btn-primary' : 'btn-primary btn-ghost'), onclick: (ev) => this.start(it, ev.currentTarget) }, it.inProgressId ? '▶ Resume' : subs.length ? '↻ New attempt' : '▶ Start') : null;
       const meta = [plural(a.questionCount, 'question'), s.timeLimitMin ? s.timeLimitMin + ' min' : 'Untimed',
         s.attemptsAllowed ? it.attemptsUsed + ' of ' + s.attemptsAllowed + ' attempt' + (s.attemptsAllowed > 1 ? 's' : '') + ' used' : 'Unlimited attempts',
-        it.assignment.dueAt ? '📅 Due ' + fmtDate(it.assignment.dueAt) : null, w !== 'open' && WIN[w] ? WIN[w][0] : null].filter(Boolean).join(' · ');
+        it.assignment.dueAt ? '📅 Due ' + fmtDate(it.assignment.dueAt) : null, w !== 'open' && WIN[w] ? WIN[w][0] : null,
+        it.attendanceOnly && it.canStart && !it.inProgressId ? '🧑‍🎓 Only for students checked in to today’s lecture' : null].filter(Boolean).join(' · ');
       const last = lastSub ? (lastSub.percent !== undefined ? 'Last: ' + lastSub.score + ' / ' + lastSub.total + ' (' + lastSub.percent + '%)' + (lastSub.passed === true ? ' · passed' : lastSub.passed === false ? ' · not passed' : '') : 'Last: result not released yet') + (lastSub.late ? ' · late' : '') + ' · ' + fmtDate(lastSub.submittedAt) : '';
       const why = reason || (noPw ? '🔒 Not open yet — your teacher has not given this assessment a password.' : '');
       const row = el('div', { class: 'card assess-card assess-row' + (it.inProgressId ? ' is-prog' : can ? ' is-open' : ''), 'data-assessment': a.id || '' },
@@ -6284,7 +6285,7 @@ Views.quiz = {
       if (btn) btn.disabled = false;
       if (r && r.ok) break;
       if (perQuiz && r && r.code === 'badpw' && tries < 5) continue;
-      toast((r && r.error) || 'Could not start the assessment.', 'bad', 6000); this.reload(); return;
+      toast((r && r.error) || 'Could not start the assessment.', 'bad', r && (r.code === 'notpresent' || r.code === 'noattendance') ? 12000 : 6000); this.reload(); return;
     }
     const att = r.attempt;
     const saved = Store.get('assess_resp_' + att.id, null);
@@ -12400,7 +12401,7 @@ Views.teacher = {
     box.appendChild(el('div', { class: 'card apw-card' }, el('h3', null, '🔑 Assessment passwords — one for each assessment'),
       el('p', { class: 'small muted' }, 'Students open Assessments and review their completed assessments WITHOUT a password. The password is asked only when they START an assessment, and it unlocks only that assessment. Not case-sensitive. An assessment without a password cannot be started until you give it one.'), list));
     if (!Backend.isConfigured()) { clear(list); list.appendChild(el('p', { class: 'small muted' }, 'Connect the class server to give each assessment its own password (local mode uses the class quiz password).')); return; }
-    let map = {};
+    let map = {}, aon = {};   // aon: attendance-only assessments (2.29)
     const draw = () => {
       clear(list);
       const asm = (State.assessments || []).filter(a => a.status !== 'archived').slice().sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
@@ -12412,6 +12413,8 @@ Views.teacher = {
           el('td', null, el('b', null, a.title || a.id)),
           el('td', null, el('span', { class: 'badge ' + (a.status === 'published' ? 'ok' : 'plain') }, ASSESS_STATUS_LABEL[a.status] || a.status || '')),
           el('td', null, own ? apwSecret(a.id, own.password) : el('span', { class: 'small apw-none', style: 'color:var(--bad);font-weight:600' }, '⚠ none yet — students cannot start it')),
+          el('td', null, el('label', { class: 'chk apw-att', title: 'On: only students checked in to today’s lecture attendance (scan, or your ✓ Present / Late) can start it — the password is still needed.' },
+            el('input', { type: 'checkbox', 'data-a': 'attonly', checked: !!aon[a.id], onchange: (ev) => attOnly(a, ev.currentTarget) }), el('span', { class: 'small' }, '🧑‍🎓 Checked-in only'))),
           el('td', null, el('div', { class: 'row', style: 'gap:.35rem;flex-wrap:wrap' },
             el('button', { class: 'btn btn-sm', 'data-a': 'set', onclick: () => edit(a) }, own ? '✏ Change' : '＋ Set password'),
             el('button', { class: 'btn btn-sm', 'data-a': 'random', onclick: () => save(a, { random: true }) }, '🎲 New random'),
@@ -12425,7 +12428,16 @@ Views.teacher = {
           for (const a of missing) { const r = await Backend.authedPost({ action: 'aePwSet', assessmentId: a.id, random: true }); if (r && r.ok) map = r.passwords || map; else { toast('✗ ' + ((r && r.error) || 'Could not save.'), 'bad'); break; } }
           AssessUI.pw = map; draw(); toast('✓ Every assessment has its own password now.', 'ok');
         } }, '🎲 Give each of them a random password')));
-      list.appendChild(el('table', { class: 'data-table apw-tbl' }, el('thead', null, el('tr', null, el('th', null, 'Assessment'), el('th', null, 'Status'), el('th', null, 'Password'), el('th', null, ''))), tb));
+      list.appendChild(el('p', { class: 'small muted apw-att-note' }, '🧑‍🎓 ', el('b', null, 'Checked-in only'), ': for a quiz given in the lecture — only students checked in to today’s lecture attendance (they scanned the code, or you marked them ✓ Present / Late) can start it, even if the password reaches others. Start the lecture’s attendance first.'));
+      list.appendChild(el('table', { class: 'data-table apw-tbl' }, el('thead', null, el('tr', null, el('th', null, 'Assessment'), el('th', null, 'Status'), el('th', null, 'Password'), el('th', null, 'Who can start'), el('th', null, ''))), tb));
+    };
+    const attOnly = async (a, cb) => {
+      const want = cb.checked; cb.disabled = true;
+      const r = await Backend.authedPost({ action: 'aeAttOnly', assessmentId: a.id, on: want });
+      cb.disabled = false;
+      if (!r || !r.ok) { cb.checked = !want; toast('✗ ' + (/Unknown action/i.test((r && r.error) || '') ? 'Update Portal.gs (2.29) on the class server first.' : ((r && r.error) || 'Could not save.')) + ' — nothing changed.', 'bad', 7000); return; }
+      aon = r.attOnly || {}; draw();
+      toast(want ? '🧑‍🎓 “' + (a.title || a.id) + '”: only students checked in to today’s lecture attendance can start it (with its password).' : '“' + (a.title || a.id) + '”: anyone with the password can start it again.', 'ok', 7000);
     };
     const save = async (a, o) => {
       const r = await Backend.authedPost(Object.assign({ action: 'aePwSet', assessmentId: a.id }, o));
@@ -12441,7 +12453,7 @@ Views.teacher = {
     };
     Backend.authedPost({ action: 'aePwList' }).then(r => {
       if (!r || !r.ok) { clear(list); list.appendChild(el('div', { class: 'msg ' + (/Unknown action/i.test((r && r.error) || '') || (r && r.code === 'badaction') ? 'warn' : 'bad') }, /Unknown action/i.test((r && r.error) || '') || (r && r.code === 'badaction') ? 'Update Portal.gs on the class server (version 2.19) to give each assessment its own password.' : 'Could not read the passwords: ' + ((r && r.error) || 'error'))); return; }
-      map = r.passwords || {}; AssessUI.pw = map; draw();
+      map = r.passwords || {}; aon = r.attOnly || {}; AssessUI.pw = map; draw();
     });
   },
   async tabPassword(box) {

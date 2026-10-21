@@ -12404,7 +12404,7 @@ Views.teacher = {
     let map = {}, aon = {};   // aon: attendance-only assessments (2.29)
     const draw = () => {
       clear(list);
-      const asm = (State.assessments || []).filter(a => a.status !== 'archived').slice().sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')));
+      const asm = assessTopicSort((State.assessments || []).filter(a => a.status !== 'archived'), a => a.updatedAt);   // as the library: others, then Topic 1 … N
       if (!asm.length) { list.appendChild(el('p', { class: 'small muted' }, 'No assessments yet — create them in Teaching → 📝 Assessments.')); return; }
       const tb = el('tbody');
       asm.forEach(a => {

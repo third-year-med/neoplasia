@@ -10425,9 +10425,9 @@ Views.attendance = {
     if (s.marks === undefined && !s._mkLoading && Backend.isConfigured()) {   // the teacher's marks (Portal.gs 2.26), then redraw
       s._mkLoading = true;
       Backend.authedPost({ action: 'attMarks', sessionId: s.sessionId }, { timeout: 30000 }).then(r => {
-        s._mkLoading = false; s.marks = r && r.ok ? (r.marks || {}) : {}; s.tsSession = !!(r && r.ok && r.tsSession); s._mkOff = !(r && r.ok);
-        if (document.body.contains(card)) card.replaceWith(this.reportCard(s, records, dismissable, closeModal));
-      }, () => { s._mkLoading = false; s.marks = {}; s._mkOff = true; });
+        s._mkLoading = false; s.marks = r && r.ok ? (r.marks || {}) : {}; s.tsSession = !!(r && r.ok && r.tsSession); s._mkOff = !(r && r.ok); s._mkErr = s._mkOff ? ((r && r.error) || 'no answer from the server') : '';
+        const cur = s._card || card; if (document.body.contains(cur)) cur.replaceWith(this.reportCard(s, records, dismissable, closeModal));
+      }, () => { s._mkLoading = false; s.marks = {}; s._mkOff = true; s._mkErr = 'no answer from the server'; const cur = s._card || card; if (document.body.contains(cur)) cur.replaceWith(this.reportCard(s, records, dismissable, closeModal)); });
     }
     const reg = this.attRegister(s, records, roster);
     const drive = s.driveStatus === 'synced' ? el('span', { class: 'msg ok', style: 'display:inline-block' }, '☁ Synced to Google Drive — ', el('a', { href: s.driveUrl, target: '_blank', rel: 'noopener' }, 'open sheet ↗'))
@@ -10485,7 +10485,9 @@ Views.attendance = {
       el('div', { class: 'row between' }, el('h3', { style: 'margin:0' }, '📊 ' + s.sessionTitle),
         dismissable ? el('button', { class: 'btn btn-sm', onclick: () => { this.report = null; this.render(); } }, 'Dismiss') : null),
       s.tsSession ? el('div', { class: 'msg info mt1' }, 'This lecture was run as a Teaching Session — mark Present / Late / Excused in Teacher Dashboard → 🎓 Teaching Sessions.')
-        : reg ? el('p', { class: 'small muted', style: 'margin:.4rem 0 0' }, 'You can mark a student ✓ Present, Late or Excused here — also after attendance is closed. Excused students are not counted as absent.') : null,
+        : reg && s._mkOff ? el('div', { class: 'msg warn mt1' }, 'Present / Late / Excused cannot be marked right now (' + (/unknown action/i.test(s._mkErr || '') ? 'update Portal.gs on the backend to version 2.26' : s._mkErr) + '). ',
+            el('button', { class: 'btn btn-xs', onclick: () => { s.marks = undefined; s._mkOff = false; const cur = s._card || card; if (document.body.contains(cur)) cur.replaceWith(this.reportCard(s, records, dismissable, closeModal)); } }, '↻ Try again'))
+        : reg ? el('p', { class: 'small muted', style: 'margin:.4rem 0 0' }, s.marks === undefined ? 'Loading the Present / Late / Excused marks…' : 'You can mark a student ✓ Present, Late or Excused here — also after attendance is closed. Excused students are not counted as absent.') : null,
       el('p', { class: 'small muted' }, (s.course || '') + (s.chapter ? ' — ' + s.chapter : '') + (s.academicYear ? ' · ' + s.academicYear : '') + (s.teacher ? ' · ' + s.teacher : '')
         + (reg ? ' · Started ' + fmtDate(s.createdAt) + (s.endedAt ? ' · Ended ' + fmtDate(s.endedAt) : '') : '')),
       el('div', { class: 'stat-cards mt1' }, stats.map(([k, v]) => el('div', { class: 'stat' }, el('div', { class: 'v' }, String(v)), el('div', { class: 'k' }, k)))),
@@ -10502,7 +10504,8 @@ Views.attendance = {
         el('button', { class: 'btn btn-sm btn-primary', disabled: !records.length && !reg, onclick: () => this.exportCSV(s, records, reg) }, '⤓ Export to Excel (CSV)'),
         el('button', { class: 'btn btn-sm', onclick: () => this.printReport(s, records, reg) }, '🖨 Print attendance report')),
       el('div', { class: 'table-scroll mt1' }, el('table', { class: 'data-table att-register' }, el('thead', null, el('tr', null, head)), el('tbody', null, tbody))));
-    if (roster === undefined) this.loadRoster().then(() => { if (document.body.contains(card)) card.replaceWith(this.reportCard(s, records, dismissable, closeModal)); });
+    s._card = card;   // the report on screen now — the roster / marks redraw THIS one, whichever arrives last
+    if (roster === undefined) this.loadRoster().then(() => { const cur = s._card || card; if (document.body.contains(cur)) cur.replaceWith(this.reportCard(s, records, dismissable, closeModal)); });
     return card;
   },
   exportCSV(s, records, reg) {

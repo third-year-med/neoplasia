@@ -10422,6 +10422,13 @@ Views.attendance = {
   /* ---------------- Report / export / print ---------------- */
   reportCard(s, records, dismissable, closeModal) {
     const roster = this._roster ? this._roster.list : undefined; // undefined = not loaded yet
+    if (s.marks === undefined && !s._mkLoading && Backend.isConfigured()) {   // the teacher's marks (Portal.gs 2.26), then redraw
+      s._mkLoading = true;
+      Backend.authedPost({ action: 'attMarks', sessionId: s.sessionId }, { timeout: 30000 }).then(r => {
+        s._mkLoading = false; s.marks = r && r.ok ? (r.marks || {}) : {}; s.tsSession = !!(r && r.ok && r.tsSession); s._mkOff = !(r && r.ok);
+        if (document.body.contains(card)) card.replaceWith(this.reportCard(s, records, dismissable, closeModal));
+      }, () => { s._mkLoading = false; s.marks = {}; s._mkOff = true; });
+    }
     const reg = this.attRegister(s, records, roster);
     const drive = s.driveStatus === 'synced' ? el('span', { class: 'msg ok', style: 'display:inline-block' }, '☁ Synced to Google Drive — ', el('a', { href: s.driveUrl, target: '_blank', rel: 'noopener' }, 'open sheet ↗'))
       : s.driveStatus === 'failed' ? el('div', { class: 'msg warn', style: 'display:inline-block' }, '⚠ Drive sync failed (attendance is safe in the database). ', el('button', { class: 'btn btn-xs', onclick: async (e) => { e.target.disabled = true; e.target.textContent = 'Syncing…'; const r = await Backend.authedPost({ action: 'retrySyncAttendance', sessionId: s.sessionId }, { timeout: 60000 }); if (r && r.ok) { toast('✓ Synced to Drive.', 'ok'); s.driveStatus = 'synced'; s.driveUrl = r.driveUrl; s.driveError = ''; this.hist = null; this.render(); } else { s.driveError = (r && r.error) || s.driveError; e.target.disabled = false; e.target.textContent = 'Retry sync'; toast('Still could not sync: ' + ((r && r.error) || ''), 'bad', 9000); } } }, 'Retry sync'),
@@ -10443,12 +10450,13 @@ Views.attendance = {
       : row.status === 'excused' ? el('span', { class: 'badge' }, 'Excused')
       : reg.final ? el('span', { class: 'badge bad' }, 'Absent') : el('span', { class: 'badge' }, 'Not checked in yet');
     // Portal.gs 2.25: ✓ Present / Late / Excused / Undo — saved on the server, then the report is redrawn from its answer
-    const canMark = !!reg && !s.tsSession;
+    const canMark = !!reg && !s.tsSession && s.marks !== undefined && !s._mkOff;
     const markBtn = (row, mk, label, cls) => el('button', { class: 'btn btn-xs' + (cls ? ' ' + cls : ''), 'data-mark': mk, title: { present: 'Mark this student present', late: 'Mark this student late', excused: 'Excused — not counted as absent', clear: 'Remove the teacher’s mark' }[mk], onclick: async (e) => {
       const b = e.currentTarget; b.disabled = true;
       const r = await Backend.authedPost({ action: 'attMark', sessionId: s.sessionId, studentId: row.studentId, mark: mk, by: (Auth.teacherName && Auth.teacherName()) || '' }, { timeout: 30000 });
-      if (!(r && r.ok)) { toast((r && r.code === 'badaction') || /unknown action/i.test((r && r.error) || '') ? 'Update Portal.gs on the backend (version 2.25) to mark attendance here.' : 'Could not save: ' + ((r && r.error) || 'no answer from the server.'), 'bad', 7000); if (document.body.contains(b)) b.disabled = false; return; }
-      Object.assign(s, r.session); records.splice(0, records.length, ...(r.records || []));
+      if (!(r && r.ok)) { toast((r && r.code === 'badaction') || /unknown action/i.test((r && r.error) || '') ? 'Update Portal.gs on the backend (version 2.26) to mark attendance here.' : 'Could not save: ' + ((r && r.error) || 'no answer from the server.'), 'bad', 7000); if (document.body.contains(b)) b.disabled = false; return; }
+      s.marks = r.marks || {}; s.tsSession = !!r.tsSession; if (r.driveStatus) { s.driveStatus = r.driveStatus; s.driveError = r.driveError || ''; }
+      records.splice(0, records.length, ...(r.records || []));
       if (AttT.sessionId === s.sessionId) AttT.poll(true);
       this.hist = null;
       if (document.body.contains(card)) card.replaceWith(this.reportCard(s, records, dismissable, closeModal));

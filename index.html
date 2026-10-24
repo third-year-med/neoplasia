@@ -4994,6 +4994,18 @@ function pickVideoDialog() {
    20_explanation.js — Explanation module (topics, sections, search, progress,
    glossary tooltips, notes/bookmarks, teacher content editing)
    ========================================================================== */
+/* F = ⛶ Full-screen reading on a Learn topic page (2026-10-24), as F does in Presentation mode. (Kept apart from the
+   learn-fs text so that patch stays idempotent; LearnFS is defined just below.) */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'f' && e.key !== 'F') return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || Router.current !== 'explain') return;
+  const t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable="true"],[contenteditable=""]')) return;
+  if (document.querySelector('.modal-back,.lightbox')) return;
+  if (!LearnFS.on && !document.querySelector('#view-explain [data-a="learn-fs"]')) return;   // only where the ⛶ button is
+  e.preventDefault();
+  if (!LearnFS.on) LearnFS.native = !!document.fullscreenElement;   // a late fullscreenchange from the last exit must not end the new one
+  LearnFS.toggle();
+});
 /** ⛶ Full-screen reading (2026-10-22): body.learn-fs hides everything but the topic; a small bar gives A− / A+ / ✕. */
 const LearnFS = {
   on: false, native: false,

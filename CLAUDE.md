@@ -18,5 +18,7 @@ in the platform repository: `third-year-med/Interactive-pathology-platform` → 
 - The Robbins picture-import files (`neo-picture-import`; Basic Robbins Ch. 6: keys `nm-robbins6-01…39`; Big Robbins / Pathologic Basis
   of Disease Ch. 7, 2026-10-24: keys `nm-robbins-pbd-01…16` — 5 repeats of the first set left out, 2 cropped to their new panel) and the Official Exams question bank
   (`xq_nm001…088`) are delivered to the user directly and are never committed (textbook figures / exam answers).
+- The drafted Practicals for Exercises 19–20 (8 records `Ex. 19.1…20.4`, from Topic 15; 2026-10-24) are delivered to the user as a
+  JSON reply + source .txt for Apply → Practical → ✨ Create from PDF → 📋 Claude.ai — copy & paste; never committed (unencrypted course text).
 - Test changes on the real page with the platform repo's e2e test "Neoplasia module (neoplasm)" (`NM_CONTENT_KEY` in the
   environment) and `node test/module-smoke/smoke.js` before pushing.

@@ -183,6 +183,12 @@ main#app-main{flex:1 0 auto;width:100%}
 .exam-qs{margin-top:1rem;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:.8rem 1rem}
 .exam-qs summary{cursor:pointer;font-weight:700;color:var(--navy-2)}
 .exam-qs ol{margin:.5rem 0 0;padding-left:1.3rem;color:var(--ink-2)}
+.prac-guide{margin-top:1rem;background:var(--teal-soft);border:1px solid #b8e4de;border-radius:var(--radius);padding:.8rem 1rem}
+.prac-guide summary{cursor:pointer;font-weight:700;color:var(--teal-ink)}
+.prac-guide p{margin:.5rem 0 0;color:var(--ink-2)}
+.prac-guide ol{margin:.5rem 0 0;padding-left:1.3rem;color:var(--ink-2)}
+.prac-guide li{margin:.25rem 0}
+.prac-guide .row{margin-top:.6rem;flex-wrap:wrap}
 .section-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-top:.9rem;overflow:hidden;transition:box-shadow .2s,border-color .2s}
 .section-card.open{border-color:#bcd4e6;box-shadow:0 6px 24px rgba(11,42,74,.10)}
 .section-card.flash{animation:flash 1.6s ease}
@@ -5214,6 +5220,7 @@ Views.explain = {
         el('button', { class: 'btn btn-sm', onclick: () => this.printTopic(t) }, '🖨 Print'),
         el('button', { class: 'btn btn-sm lfs-btn', 'data-a': 'learn-fs', title: 'Read this topic full screen (Esc to leave)', onclick: () => LearnFS.toggle() }, LearnFS.on ? '✕ Exit full screen' : '⛶ Full screen'),
         el('button', { class: 'btn btn-sm btn-primary print-chapter-btn', title: 'Print or save as PDF every topic of this chapter', onclick: () => this.printChapter() }, '🖨️ Print Entire Chapter'))));
+    if (pracGuideTopic() === t) main.appendChild(pracGuideCard('learn'));
     if (t.syllabusQuestions && t.syllabusQuestions.length) {
       main.appendChild(el('details', { class: 'exam-qs' },
         el('summary', null, '🎯 Exam-style questions for this topic (from the syllabus)'),
@@ -9176,6 +9183,32 @@ const PracHandout = {
    published practicals (study page, self-answering, print / PDF handouts).
    The existing Image Bank lives on as a second sub-tab (PracticalBank).
    ========================================================================== */
+/* 🧭 Practical study guide (2026-10-24): how the practical Learn topic and Apply → Practical work together.
+   Shown on that topic in Learn ('learn') and on Apply → Practical → Practicals ('practical'). */
+function pracGuideTopic() { return getTopics().find(t => /practical/i.test(t.title || '')) || null; }
+function pracGuideCard(where) {
+  const t = pracGuideTopic(); const inLearn = where === 'learn';
+  const tName = t ? '“' + t.title + '”' : 'the practical topic';
+  const quiz = t ? el('button', { class: 'btn btn-sm', onclick: () => Router.go('revision', ['topic', t.id]) }, '🧠 Topic quiz') : null;
+  const d = el('details', { class: 'prac-guide', 'data-a': 'prac-guide', open: Store.get('prac_guide_open_v1', true) !== false },
+    el('summary', null, '🧭 How to use the practical — before, in and after the lab'),
+    el('p', null, inLearn ? 'This topic gives you the knowledge; Apply → Practical trains the skill at the bench. Use them together:'
+      : 'The practical trains the skill at the bench; ' + tName + ' in Learn gives you the knowledge. Use them together:'),
+    el('ol', null,
+      el('li', null, el('b', null, 'Before the lab — '), inLearn ? 'read this topic (what to look for, gross and microscopic features, the key clue) and do its quiz.'
+        : 'read ' + tName + ' in Learn (what to look for, gross and microscopic features, the key clue) and do its quiz.'),
+      el('li', null, el('b', null, 'In the lab — '), 'open your session’s practical in Apply → Practical and use its handout at the microscope.'),
+      el('li', null, el('b', null, 'After the lab — '), 'open the Image Bank: name each picture yourself, then reveal the diagnosis.'),
+      el('li', null, el('b', null, 'Before the exam — '), (inLearn ? 'revise this topic’s key points' : 'revise the topic’s key points') + ' and test yourself again in the Image Bank.')),
+    el('p', { class: 'small muted' }, 'The specimens have the same names and diagnoses in both places.'),
+    el('div', { class: 'row' },
+      inLearn ? el('button', { class: 'btn btn-sm btn-primary', onclick: () => Router.go('practical') }, '🔬 Open the Practicals')
+        : t ? el('button', { class: 'btn btn-sm btn-primary', onclick: () => Router.go('explain', [t.id]) }, '📖 Read the topic in Learn') : null,
+      quiz,
+      el('button', { class: 'btn btn-sm', onclick: () => Router.go('practical', ['bank']) }, '🖼 Image Bank')));
+  d.addEventListener('toggle', () => Store.set('prac_guide_open_v1', d.open));
+  return d;
+}
 function pracTabs(active) {
   const t = Auth.isTeacher(); const drafts = t ? PracData.drafts.length : 0;
   return el('div', { class: 'tabs prac-tabs' },
@@ -9234,6 +9267,7 @@ const PracStudent = {
         el('button', { class: 'btn btn-primary', onclick: () => Router.go('practical', ['import']) }, '✨ Create from PDF'),
         el('button', { class: 'btn', onclick: () => PracTeacher.newBlank() }, '+ Blank practical')) : null));
     page.appendChild(pracTabs('list'));
+    page.appendChild(pracGuideCard('practical'));
     if (teacher) page.appendChild(PracTeacher.draftsPanel());
     const setPdf = teacher || cfg.allowSetDownload, setPrint = teacher || cfg.allowSetPrint;
     const head = el('div', { class: 'row between mt2' }, el('h2', { class: 'prac-h2' }, teacher ? '👩‍🎓 Published — what students see' : 'Your practicals'),

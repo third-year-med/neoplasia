@@ -9191,14 +9191,14 @@ function pracGuideCard(where) {
   const tName = t ? '“' + t.title + '”' : 'the practical topic';
   const quiz = t ? el('button', { class: 'btn btn-sm', onclick: () => Router.go('revision', ['topic', t.id]) }, '🧠 Topic quiz') : null;
   const d = el('details', { class: 'prac-guide', 'data-a': 'prac-guide', open: Store.get('prac_guide_open_v1', true) !== false },
-    el('summary', null, '🧭 How to use the practical — before, in and after the lab'),
-    el('p', null, inLearn ? 'This topic gives you the knowledge; Apply → Practical trains the skill at the bench. Use them together:'
-      : 'The practical trains the skill at the bench; ' + tName + ' in Learn gives you the knowledge. Use them together:'),
+    el('summary', null, '🧭 How to use the practical — before, during and after the session'),
+    el('p', null, inLearn ? 'This topic gives you the knowledge; Apply → Practical trains you to recognise the specimens in gross and microscopic pictures. Use them together:'
+      : 'The practical trains you to recognise the specimens in gross and microscopic pictures; ' + tName + ' in Learn gives you the knowledge. Use them together:'),
     el('ol', null,
-      el('li', null, el('b', null, 'Before the lab — '), inLearn ? 'read this topic (what to look for, gross and microscopic features, the key clue) and do its quiz.'
+      el('li', null, el('b', null, 'Before the session — '), inLearn ? 'read this topic (what to look for, gross and microscopic features, the key clue) and do its quiz.'
         : 'read ' + tName + ' in Learn (what to look for, gross and microscopic features, the key clue) and do its quiz.'),
-      el('li', null, el('b', null, 'In the lab — '), 'open your session’s practical in Apply → Practical and use its handout at the microscope.'),
-      el('li', null, el('b', null, 'After the lab — '), 'open the Image Bank: name each picture yourself, then reveal the diagnosis.'),
+      el('li', null, el('b', null, 'During the session — '), 'open the session’s practical in Apply → Practical: describe each gross and microscopic picture on the handout before you name it.'),
+      el('li', null, el('b', null, 'After the session — '), 'open the Image Bank: name each picture yourself, then reveal the diagnosis.'),
       el('li', null, el('b', null, 'Before the exam — '), (inLearn ? 'revise this topic’s key points' : 'revise the topic’s key points') + ' and test yourself again in the Image Bank.')),
     el('p', { class: 'small muted' }, 'The specimens have the same names and diagnoses in both places.'),
     el('div', { class: 'row' },

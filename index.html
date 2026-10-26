@@ -10443,6 +10443,10 @@ Views.attendance = {
     const course = el('input', { type: 'text', value: last.course || 'Pathology' });
     const chapter = el('input', { type: 'text', value: last.chapter || COURSE.title });
     const teacher = el('input', { type: 'text', value: last.teacher || AUTHOR });
+    // the account that opened the module (Portal.gs 2.35 teacherWho): a personal teacher sees their own name, never the author's
+    if (!this.whoP) this.whoP = Backend.authedPost({ action: 'teacherWho' }, { timeout: 20000 }).catch(() => null);
+    teacher.addEventListener('input', () => { teacher.dataset.typed = '1'; });
+    this.whoP.then(r => { if (r && r.ok && !r.admin && r.name && !teacher.dataset.typed) teacher.value = r.name; });
     const title = el('input', { type: 'text', placeholder: 'e.g. Session 2 — Metastasis' });
     const msg = el('div');
     return el('div', { class: 'card' }, el('h3', null, '▶ Start attendance for a new teaching session'),

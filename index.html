@@ -1128,6 +1128,7 @@ body.pres-fs-on{overflow:hidden}
 .rs-menu-pop{position:absolute;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:.3rem;display:flex;flex-direction:column;min-width:240px}
 .rs-menu-pop .btn{justify-content:flex-start;text-align:left;width:100%}
 .rs-sticky{position:fixed;left:50%;transform:translate(-50%,-120%);z-index:45;display:flex;gap:.6rem;align-items:center;background:#fff;border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;box-shadow:var(--shadow);padding:.4rem .9rem;max-width:min(760px,calc(100vw - 24px));white-space:nowrap;overflow:hidden;transition:transform .18s;pointer-events:none}
+body.learn-fs .rs-sticky{display:none!important}
 .rs-sticky.show{transform:translate(-50%,0);pointer-events:auto}.rs-sticky b{overflow:hidden;text-overflow:ellipsis;color:var(--navy)}
 .rs-kpis{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.6rem;margin:.9rem 0}
 .rs-kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:.7rem .8rem;box-shadow:var(--shadow)}
@@ -13209,6 +13210,9 @@ const ResultsUI = {
     const sticky = el('div', { class: 'rs-sticky', role: 'status', 'aria-live': 'off' }, el('span', { class: 'rs-kicker' }, 'Assessment'), el('b', null, inf.title), el('span', { class: 'small muted' }, meta.slice(0, 2).join(' · ')),
       el('button', { class: 'btn btn-xs', onclick: () => { bar.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => sel.focus(), 350); } }, 'Change'));
     document.body.appendChild(sticky);
+    // leaving Results (another view or portal tab) removes the bar — it never stays on top of Learn / ⛶ Full screen (2026-10-26)
+    const rsLeave = () => setTimeout(() => { if (Router.current === 'teacher' && this.T().tab === 'results' && sticky.isConnected) return; sticky.remove(); window.removeEventListener('hashchange', rsLeave); if (this._io) { this._io.disconnect(); this._io = null; } }, 0);
+    window.addEventListener('hashchange', rsLeave);
     const hdr = document.querySelector('.app-header'); const top = hdr ? hdr.offsetHeight : 0; sticky.style.top = top + 'px';
     if (this._io) this._io.disconnect();
     if ('IntersectionObserver' in window) {

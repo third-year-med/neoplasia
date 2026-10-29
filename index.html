@@ -7398,6 +7398,7 @@ const PracticalBank = {
     if (this.test) return this.renderTest(page);
     if (this.detailId) { const it = State.practical.find(x => x.id === this.detailId); if (it) return this.renderDetail(page, it); this.detailId = null; }
     const teacher = Auth.isTeacher();
+    if (!teacher && !(State.practical || []).length) { Router.go('practical', [], { replace: true }); return; }   // empty Image Bank: students go to the Practicals
     page.appendChild(sectionTitleBlock('🖼 Practical — Image Bank', 'Essential gross, microscopic and clinical images selected by your teacher. Open an item, study it, then reveal the diagnosis — or test yourself in Image-ID mode.',
       el('div', { class: 'row' },
         el('button', { class: 'btn', disabled: !State.practical.some(p => (p.images || []).length), onclick: () => this.startTest() }, '🧪 Test Yourself (Image ID Mode)'),
@@ -9217,7 +9218,7 @@ function pracGuideCard(where) {
       el('li', null, el('b', null, 'Before the session — '), inLearn ? 'read this topic (what to look for, gross and microscopic features, the key clue) and do its quiz.'
         : 'read ' + tName + ' in Learn (what to look for, gross and microscopic features, the key clue) and do its quiz.'),
       el('li', null, el('b', null, 'During the session — '), 'open the session’s practical in Apply → Practical: describe each gross and microscopic picture on the handout before you name it.'),
-      el('li', null, el('b', null, 'After the session — '), 'practise in the 🔬 Pathology Spotter (Practice mode): look at each picture, choose the best answer, then read the explanation. The Image Bank lets you name the pictures freely.'),
+      el('li', null, el('b', null, 'After the session — '), 'practise in the 🔬 Pathology Spotter (Practice mode): look at each picture, choose the best answer, then read the explanation.' + ((State.practical || []).length ? ' The Image Bank lets you name the pictures freely.' : '')),
       el('li', null, el('b', null, 'Before the exam — '), 'take a Spotter exam (Exam mode: 20 pictures, score and review at the end), then ' + (inLearn ? 'revise this topic’s key points' : 'revise the topic’s key points') + ' for the questions you missed.')),
     el('p', { class: 'small muted' }, 'The specimens have the same names and diagnoses in both places.'),
     el('div', { class: 'row' },
@@ -9225,7 +9226,7 @@ function pracGuideCard(where) {
         : t ? el('button', { class: 'btn btn-sm btn-primary', onclick: () => Router.go('explain', [t.id]) }, '📖 Read the topic in Learn') : null,
       el('button', { class: 'btn btn-sm', 'data-a': 'prac-guide-spotter', onclick: () => Router.go('study', ['challenge']) }, '🔬 Pathology Spotter'),
       quiz,
-      el('button', { class: 'btn btn-sm', onclick: () => Router.go('practical', ['bank']) }, '🖼 Image Bank')));
+      (State.practical || []).length || Auth.isTeacher() ? el('button', { class: 'btn btn-sm', onclick: () => Router.go('practical', ['bank']) }, '🖼 Image Bank') : null));
   d.addEventListener('toggle', () => Store.set('prac_guide_open_v1', d.open));
   return d;
 }
@@ -9233,7 +9234,7 @@ function pracTabs(active) {
   const t = Auth.isTeacher(); const drafts = t ? PracData.drafts.length : 0;
   return el('div', { class: 'tabs prac-tabs' },
     el('button', { class: 'tab' + (active === 'list' ? ' active' : ''), onclick: () => Router.go('practical') }, '📋 Practicals', t && drafts ? el('span', { class: 'nb' }, String(drafts)) : null),
-    el('button', { class: 'tab' + (active === 'bank' ? ' active' : ''), onclick: () => Router.go('practical', ['bank']) }, '🖼 Image Bank'),
+    t || (State.practical || []).length ? el('button', { class: 'tab' + (active === 'bank' ? ' active' : ''), onclick: () => Router.go('practical', ['bank']) }, '🖼 Image Bank') : null,   // hidden from students while empty
     t ? el('button', { class: 'tab' + (active === 'handbook' ? ' active' : ''), onclick: () => Router.go('practical', ['handbook']) }, '📚 Handbook') : null,
     t ? el('button', { class: 'tab' + (active === 'settings' ? ' active' : ''), onclick: () => Router.go('practical', ['settings']) }, '⚙ Settings') : null);
 }
@@ -9297,7 +9298,7 @@ const PracStudent = {
     page.appendChild(head);
     if (!pubs.length) {
       page.appendChild(el('div', { class: 'card empty mt1' }, el('span', { class: 'big' }, '🔬'), el('h3', { style: 'margin:.3rem 0' }, 'No practicals published yet'),
-        el('p', { class: 'muted' }, teacher ? 'Create practicals from your practical PDF, review them, add the real images and publish — they appear here for students.' : 'Your teacher has not published any practicals yet. The Image Bank tab may already have images to study.')));
+        el('p', { class: 'muted' }, teacher ? 'Create practicals from your practical PDF, review them, add the real images and publish — they appear here for students.' : 'Your teacher has not published any practicals yet.' + ((State.practical || []).length ? ' The Image Bank tab may already have images to study.' : ''))));
       return;
     }
     const grid = el('div', { class: 'prac-list' });

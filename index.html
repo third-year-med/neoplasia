@@ -4839,12 +4839,12 @@ function figureSvg(id) { const f = FIGURES[id]; return f ? uniquifySvgIds(f.svg)
 function renderFigure(id, opts) {
   const f = FIGURES[id]; if (!f) return null;
   const host = el('div', { class: 'fig-svg', html: figureSvg(id), title: 'Click to enlarge', tabindex: '0', role: 'button', 'aria-label': 'Enlarge figure: ' + f.title });
-  const open = () => openLightbox({ svg: figureSvg(id), caption: f.title + ' — ' + f.caption, credit: 'Original schematic illustration drawn for this platform from the syllabus text.' });
+  const open = () => openLightbox({ svg: figureSvg(id), caption: f.title + ' — ' + f.caption, credit: f.credit || 'Original schematic illustration drawn for this platform from the syllabus text.' });
   host.addEventListener('click', open);
   host.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   return el('figure', { class: 'figure-card' + (opts && opts.compact ? ' compact' : '') }, host,
     el('figcaption', null, el('b', null, f.title + '. '), f.caption,
-      el('span', { class: 'fig-credit' }, '🎨 Original schematic drawn for this platform from the syllabus text — not a reproduction of any textbook figure. Click to zoom.')));
+      el('span', { class: 'fig-credit' }, f.credit ? '📄 ' + f.credit + ' Click to zoom.' : '🎨 Original schematic drawn for this platform from the syllabus text — not a reproduction of any textbook figure. Click to zoom.')));
 }
 
 function stepBox(s) {
@@ -19305,8 +19305,8 @@ function pmFigure(o, hide) {
   let cap = null, meta = '', credit = null, lb = null;
   if (o.kind === 'fig') {
     box.appendChild(el('div', { class: 'gal-svg', html: figureSvg(o.id) }));
-    cap = o.f.title; meta = 'Schematic'; credit = el('span', null, 'Original schematic (course illustration)');
-    lb = () => openLightbox({ svg: figureSvg(o.id), caption: o.f.title + ' — ' + o.f.caption, credit: 'Original schematic illustration drawn for this platform from the syllabus text.' });
+    cap = o.f.title; meta = o.f.credit ? 'Figure' : 'Schematic'; credit = el('span', null, o.f.credit || 'Original schematic (course illustration)');
+    lb = () => openLightbox({ svg: figureSvg(o.id), caption: o.f.title + ' — ' + o.f.caption, credit: o.f.credit || 'Original schematic illustration drawn for this platform from the syllabus text.' });
   } else if (o.kind === 'atlas') {
     const x = o.x;
     box.appendChild(atlasImgEl(x, hide ? ATLAS.kindLabel(x.kind) + ' pathology image — identify it' : x.dx, true));

@@ -10169,16 +10169,23 @@ function pracAnnotate(im, onDone) {
 /* ============================ Settings (administrator) ============================ */
 /** Copies the handout options (not the file name) to every practical; a published practical without other pending edits is
  *  re-published so the students' copy follows; one with other pending edits keeps them for the teacher to approve. */
+/** True when the draft would publish exactly the students' copy apart from the handout options (and answers they unlock). */
+function pracSameContent(d, pub) {
+  const strip = x => { const o = Object.assign({}, x); ['version', 'publishedAt', 'hash', 'settings', 'answersIncluded'].forEach(k => delete o[k]); o.questions = (o.questions || []).map(q => [q.id, q.type, q.q]); o.viva = (o.viva || []).map(q => [q.id, q.q]); return JSON.stringify(o); };
+  try { return strip(PE_publishSnapshot(d, {})) === strip(pub); } catch (e) { return false; }
+}
 async function pracApplyDefaultsAll(defaults, progress) {
   const keys = Object.keys(PE_DEFAULT_SETTINGS).filter(k => k !== 'fileName'); let updated = 0, republished = 0; const pending = [];
   for (const d0 of PracData.list()) {
     const d = PracData.get(d0.id); if (!d) continue;
-    const otherEdits = d.status === 'published' && PracData.hasUnpublishedChanges(d);
+    const pub = PracData.pub(d.id);   // the copy students see (patch prac-apply-fix: compare with it, not only with the draft)
     const s = Object.assign({}, PE_DEFAULT_SETTINGS, d.settings || {}); keys.forEach(k => { s[k] = !!(defaults || {})[k]; });
-    if (JSON.stringify(s) === JSON.stringify(Object.assign({}, PE_DEFAULT_SETTINGS, d.settings || {}))) continue;
+    const same = (a, b) => keys.every(k => !!(a || {})[k] === !!(b || {})[k]);
+    const draftOk = same(s, d.settings), pubOk = !pub || same(s, pub.settings);
+    if (draftOk && pubOk) continue;
     progress('Updating ' + d.title + '…'); d.settings = s; updated++;
-    if (d.status === 'published' && !otherEdits) { await PracData.publish(d); republished++; }
-    else { await PracData.save(d, { keepStatus: true }); if (otherEdits) pending.push(d.title); }
+    if (pub && d.status === 'published' && pracSameContent(d, pub)) { await PracData.publish(d); republished++; }   // only the options differ from the students' copy
+    else { await PracData.save(d, { keepStatus: true }); if (pub && !pubOk) pending.push(d.title); }
   }
   return { updated, republished, pending };
 }
@@ -10209,12 +10216,13 @@ const PracSettingsUI = {
       el('p', { class: 'small', style: 'margin-top:0' }, 'Copies the options above (printing, PDF, images, diagrams, questions, viva, teaching points, answers, answers on the page, answer key) to every practical and updates the copy students see, so their print and PDF follow at once.'),
       el('button', { class: 'btn btn-primary', 'data-a': 'prac-apply-all', disabled: !!PracSettingsUI.applying, onclick: async () => {
         if (PracSettingsUI.applying) return;
+        if (!PracData.drafts.length) { say('msg warn', PracData.published().length ? 'This copy of the module has no practical drafts — the practicals your students see were made in ✏️ Edit master draft. Open the module with ✏️ Edit master draft (Teacher Dashboard → Platform Home → Content), press this button there, then ⬆ Publish draft: every group then gets the new options.' : 'There are no practicals in this copy of the module yet.'); return; }
         if (!(await confirmDialog('Apply these handout options to all ' + plural(PracData.drafts.length, 'practical') + '? Published practicals are updated for students at once.', { okLabel: 'Apply to all' }))) return;
         PracSettingsUI.applying = true; document.querySelectorAll('[data-a=prac-apply-all]').forEach(b => { b.disabled = true; }); say('small', 'Saving the settings…');
         try {
           v.mandatory = Array.from(new Set(['title', 'number'].concat(Array.from(mand)))); await PracData.saveCfg(v);
           const r = await pracApplyDefaultsAll(v.defaults, (t) => say('small', t));
-          say('msg ' + (r.pending.length ? 'warn' : 'ok'), '✓ ' + plural(r.updated, 'practical') + ' updated' + (r.republished ? ', ' + r.republished + ' re-published for students' : '') + '.' + (r.pending.length ? ' Open and approve → publish these (they also have other unpublished edits): ' + r.pending.join(', ') + '.' : '') + (r.updated ? '' : ' (They already had these options.)'));
+          say('msg ' + (r.pending.length ? 'warn' : 'ok'), '✓ ' + plural(r.updated, 'practical') + ' updated' + (r.republished ? ', ' + r.republished + ' re-published for students' : '') + '.' + (r.pending.length ? ' Open and approve → publish these (they also have other unpublished edits): ' + r.pending.join(', ') + '.' : '') + (r.updated ? '' : ' Every practical and the copy students see already have these options.'));
         } catch (err) { say('msg bad', 'Stopped: ' + err.message); }
         PracSettingsUI.applying = false; document.querySelectorAll('[data-a=prac-apply-all]').forEach(b => { b.disabled = false; });
       } }, '📄 Apply to all existing practicals'), el('div', { class: note.cls || 'small', 'data-a': 'prac-apply-msg' }, note.text || '')));
